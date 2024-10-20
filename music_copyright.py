@@ -15,8 +15,7 @@ class CopyrightChecker(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(command_prefix='!', intents=intents, help_command=None)
-        
-        # Updated YoutubeDL options for yt-dlp
+
         self.ydl_opts = {
             'format': 'bestaudio/best',
             'extract_flat': 'in_playlist',
@@ -24,8 +23,6 @@ class CopyrightChecker(commands.Bot):
             'no_warnings': True,
             'force_generic_extractor': False
         }
-        
-        # Set up Spotify client
         client_id = os.getenv("SPOTIFY_CLIENT_ID")
         client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
         self.spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id, client_secret))
@@ -40,7 +37,7 @@ class MusicCommands(commands.Cog):
     @commands.command(name='check')
     async def check_copyright(self, ctx, *, query):
         """Check copyright status of a song by title or YouTube URL"""
-        async with ctx.typing():  # Shows typing indicator while processing
+        async with ctx.typing():
             try:
                 # If it's a YouTube URL
                 if 'youtube.com' in query or 'youtu.be' in query:
@@ -51,7 +48,6 @@ class MusicCommands(commands.Cog):
                     else:
                         await ctx.send("❌ Couldn't fetch video information. Please make sure the URL is valid.")
                 
-                # If it's a song title (Spotify search)
                 else:
                     results = await self.search_spotify_info(query)
                     if results:
@@ -59,7 +55,7 @@ class MusicCommands(commands.Cog):
                         await ctx.send(embed=embed)
                     else:
                         await ctx.send("❌ No information found for this song on Spotify.")
-                        
+   
             except Exception as e:
                 error_msg = f"❌ An error occurred: {str(e)}"
                 if "HTTP Error 429" in str(e):
@@ -76,9 +72,22 @@ class MusicCommands(commands.Cog):
                 if not info:
                     return None
                 
-                # Analyze the licensing information
                 license_info = info.get('license', 'Standard YouTube License')
-                copyrighted = license_info != 'Creative Commons'  # Most YouTube videos are copyrighted
+                title = info.get('title', '').lower()
+                description = info.get('description', '').lower()
+
+                # Improved copyright detection logic
+                is_creative_commons = (
+                    'creative commons' in description or
+                    license_info.lower() == 'creative commons'
+                )
+                
+                # Check for phrases indicating that the content might be free to use
+                no_copyright_terms = ['no copyright', 'free to use', 'royalty-free', 'copyright free', 'public domain']
+                contains_no_copyright = any(term in title or term in description for term in no_copyright_terms)
+                
+                # Consider the content non-copyrighted if it falls into these categories
+                copyrighted = not (is_creative_commons or contains_no_copyright)
 
                 return {
                     'title': info.get('title', 'Unknown'),
@@ -141,7 +150,6 @@ class MusicCommands(commands.Cog):
     async def create_youtube_embed(self, info):
         """Create Discord embed for YouTube video info"""
         copyright_status = "🔒 Copyrighted" if info['is_copyrighted'] else "✔️ Public Domain / Creative Commons"
-        note = "This Check is Performed by Checking the information of the Video`s License"
         embed = discord.Embed(
             title="YouTube Video Information",
             description=f"[Watch on YouTube]({info.get('url')})",
@@ -152,7 +160,7 @@ class MusicCommands(commands.Cog):
         embed.add_field(name="Channel", value=info['channel'], inline=True)
         embed.add_field(name="License", value=info['license'], inline=True)
         embed.add_field(name="Status", value=copyright_status, inline=True)
-        embed.add_field(name="Note", value=note, inline=True)
+        embed.add_field(name="Note", value="This check is based on video license information, title, and description analysis.", inline=True)
         
         if info['thumbnail']:
             embed.set_thumbnail(url=info['thumbnail'])

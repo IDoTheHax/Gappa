@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gappa is a powerful Discord bot that helps you check if the music you want to use is copyrighted. Protect your content and avoid copyright strikes with ease!">
+    <title>GAPPA - Discord Music Copyright Checker</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+        }
+        header {
+            background: #983b3b;
+            color: white;
+            padding-top: 30px;
+            min-height: 70px;
+            border-bottom: #8a1e1e 3px solid;
+        }
+        header h1 {
+            margin: 0;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        header p {
+            margin: 0;
+            text-align: center;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #983b3b;
+            margin-top: 0;
+        }
+        ul, ol {
+            padding-left: 20px;
+        }
+        #cta {
+            text-align: center;
+        }
+        .btn {
+            display: inline-block;
+            background: #983b3b;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background: #8a1e1e;
+        }
+        footer {
+            background: #983b3b;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 20px auto;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Gappa</h1>
+            <p>In Beta, I do not say that it is 100% accurate, but it is a good start</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <section id="intro" class="section">
+            <h2>Welcome to Gappa</h2>
+            <p>Gappa is a powerful Discord bot that helps you check if the music you want to use is copyrighted. Protect your content and avoid copyright strikes with ease!</p>
+        </section>
+
+        <section id="how-it-works" class="section">
+            <h2>How It Works</h2>
+            <ol>
+                <li>Invite Gappa to your Discord server</li>
+                <li>Use the command !check followed by the song name</li>
+                <li>Gappa inspects the songs license, description and Title</li>
+                <li>Receive instant feedback on the copyright status of the song</li>
+            </ol>
+        </section>
+
+        <section id="features" class="section">
+            <h2>Features</h2>
+            <ul>
+                <li>Quick, Fast and FREE results</li>
+                <li>Highly demanded by the community</li>
+            </ul>
+        </section>
+
+        <section id="top-level-design" class="section">
+            <h2>Top-Level Design</h2>
+            <img src="Untitled-2024-10-20-1938.png" alt="Top-level design diagram">
+            <p>Our top-level design consists of the following components:</p>
+            <ul>
+                <li>Discord Bot Interface: Handles user interactions within Discord</li>
+                <li>Command Parser: Interprets user commands and extracts song information</li>
+                <li>Engine Design: Designed for speed and efficiency</li>
+                <li>Response Generator: Creates user-friendly responses based on search results</li>
+            </ul>
+        </section>
+
+        <section id="cta" class="section">
+            <h2>Ready to Protect Your Content?</h2>
+            <p>Add Gappa to your Discord server now and start checking your music!</p>
+            <a href="https://discord.com/oauth2/authorize?client_id=1297445588110938195" class="btn">Add to Discord</a>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Gappa. All rights reserved.</p>
+    </footer>
+
+    <script>
+        document.getElementById('addBot').addEventListener('click', function() {
+            alert('Thank you for your interest! This is a demo page. In a real application, this button would redirect to Discord\'s bot authorization page.');
+        });
+    </script>
+</body>
+</html>
