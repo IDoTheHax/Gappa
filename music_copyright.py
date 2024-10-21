@@ -6,9 +6,14 @@ from yt_dlp import YoutubeDL
 import asyncio
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+from googleapiclient.discovery import build
 
 # Load environment variables
 load_dotenv()
+
+# YouTube API client setup
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
 
 class CopyrightChecker(commands.Bot):
     def __init__(self):
@@ -29,6 +34,10 @@ class CopyrightChecker(commands.Bot):
         
     async def setup_hook(self):
         await self.add_cog(MusicCommands(self))
+
+    async def on_ready(self):
+        print(f"Bot is ready! Logged in as {self.user}")
+        await self.change_presence(activity=discord.Game(name="With Copyright! Want to know more? Type !help"))
 
 class MusicCommands(commands.Cog):
     def __init__(self, bot):
@@ -166,6 +175,118 @@ class MusicCommands(commands.Cog):
             embed.set_thumbnail(url=info['thumbnail'])
         
         return embed
+
+    @commands.command(name="fetch")
+    async def fetch_video_info(self, ctx, yt_link):
+        try:
+            video_info = self.get_video_info(yt_link)
+            embed = discord.Embed(
+                title=video_info['title'],
+                description=video_info['description'][:200] + "..." if len(video_info['description']) > 200 else video_info['description'],
+                color=discord.Color.red(),
+                url=yt_link
+            )
+            embed.set_author(name=video_info['channel_title'])
+            embed.add_field(name="Published on", value=video_info['publish_date'], inline=True)
+            embed.add_field(name="Views", value=f"{int(video_info['views']):,}", inline=True)
+            embed.add_field(name="Likes", value=f"{int(video_info['likes']):,}", inline=True)
+            embed.add_field(name="Comments", value=f"{int(video_info['comments']):,}", inline=True)
+            embed.add_field(name="Duration", value=self.format_duration(video_info['duration']), inline=True)
+            embed.add_field(name="Channel Subscribers", value=f"{int(video_info['channel_subscribers']):,}", inline=True)
+            embed.add_field(name="Total Videos", value=f"{int(video_info['channel_videos']):,}", inline=True)
+            
+            if 'thumbnail' in video_info and video_info['thumbnail']:
+                embed.set_thumbnail(url=video_info['thumbnail'])
+            
+            await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    def format_duration(self, duration):
+        """Convert ISO 8601 duration to a more readable format"""
+        duration = duration.replace('PT', '')
+        hours = 0
+        minutes = 0
+        seconds = 0
+        
+        if 'H' in duration:
+            hours, duration = duration.split('H')
+            hours = int(hours)
+        if 'M' in duration:
+            minutes, duration = duration.split('M')
+            minutes = int(minutes)
+        if 'S' in duration:
+            seconds = int(duration.replace('S', ''))
+        
+        if hours > 0:
+            return f"{hours}:{minutes:02d}:{seconds:02d}"
+        else:
+            return f"{minutes}:{seconds:02d}"
+
+    def get_video_info(self, video_url):
+        video_id = video_url.split('v=')[-1]  # Extract video ID from URL
+
+        # Fetch video details from YouTube API
+        video_request = youtube.videos().list(
+            part="snippet,contentDetails,statistics",
+            id=video_id
+        )
+        video_response = video_request.execute()
+
+        if not video_response['items']:
+            raise Exception("Invalid YouTube video link or video not found.")
+
+        video_data = video_response["items"][0]
+        channel_id = video_data["snippet"]["channelId"]
+
+        # Fetch channel details
+        channel_request = youtube.channels().list(
+            part="snippet,statistics",
+            id=channel_id
+        )
+        channel_response = channel_request.execute()
+        channel_data = channel_response["items"][0]
+
+        # Add this line to get the thumbnail URL
+        thumbnail = video_data["snippet"]["thumbnails"]["high"]["url"] if "thumbnails" in video_data["snippet"] else None
+        
+        return {
+            "title": video_data["snippet"]["title"],
+            "description": video_data["snippet"]["description"],
+            "channel_title": video_data["snippet"]["channelTitle"],
+            "publish_date": video_data["snippet"]["publishedAt"],
+            "views": video_data["statistics"].get("viewCount", "N/A"),
+            "likes": video_data["statistics"].get("likeCount", "N/A"),
+            "comments": video_data["statistics"].get("commentCount", "N/A"),
+            "duration": video_data["contentDetails"]["duration"],
+            "channel_subscribers": channel_data["statistics"].get("subscriberCount", "N/A"),
+            "channel_videos": channel_data["statistics"]["videoCount"],
+            "thumbnail": thumbnail
+        }
+
+    @commands.command(name='help')
+    async def help_command(self, ctx):
+        embed = discord.Embed(
+            title="Music Copyright Bot Help",
+            description="Here are the available commands:",
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="!check [song title or YouTube URL]",
+            value="Check the copyright status of a song or YouTube video.",
+            inline=False
+        )
+        embed.add_field(
+            name="!fetch [YouTube URL]",
+            value="Fetch detailed information about a YouTube video.",
+            inline=False
+        )
+        embed.add_field(
+            name="!help",
+            value="Show this help message.",
+            inline=False
+        )
+        await ctx.send(embed=embed)
 
 # Start the bot
 bot = CopyrightChecker()
