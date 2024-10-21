@@ -291,6 +291,11 @@ class MusicCommands(commands.Cog):
             inline=False
         )
         embed.add_field(
+            name="!info",
+            value="Display information about the bot.",
+            inline=False
+        )
+        embed.add_field(
             name="!help",
             value="Show this help message.",
             inline=False
@@ -319,6 +324,42 @@ class MusicCommands(commands.Cog):
             await ctx.send(embed=embed)
         else:
             await ctx.send('Please provide a valid YouTube link!')
+
+    @commands.command(name='info')
+    async def show_bot_info(self, ctx):
+        embed = discord.Embed(
+            title="Gappa Bot Info",
+            description="I'm a bot designed to help The Creator Community With Free Tools!",
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="Version",
+            value="0.7",
+            inline=True
+        )
+        embed.add_field(
+            name="Library",
+            value=f"discord.py {discord.__version__}",
+            inline=True
+        )
+        embed.add_field(
+            name="Creator",
+            value="Coder-Soft",
+            inline=True
+        )
+        embed.add_field(
+            name="Credits",
+            value="Skeptical",
+            inline=True
+        )
+        embed.add_field(
+            name="Commands",
+            value="Use !help to see available commands",
+            inline=False
+        )
+        embed.set_footer(text="Thanks for using Gappa and thanks to Skeptical and others For the Amazing Support!")
+        
+        await ctx.send(embed=embed)
 
 # Start the bot
 bot = CopyrightChecker()
