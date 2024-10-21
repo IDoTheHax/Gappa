@@ -2,6 +2,5 @@ discord.py
 spotipy
 yt-dlp
 asyncio
-dotenv
-discord
-
+python-dotenv
+re

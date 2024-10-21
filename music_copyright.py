@@ -7,6 +7,7 @@ import asyncio
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
+import re
 
 # Load environment variables
 load_dotenv()
@@ -14,6 +15,9 @@ load_dotenv()
 # YouTube API client setup
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+
+# Regular expression pattern to validate and extract video IDs
+YOUTUBE_URL_PATTERN = r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})'
 
 class CopyrightChecker(commands.Bot):
     def __init__(self):
@@ -282,11 +286,39 @@ class MusicCommands(commands.Cog):
             inline=False
         )
         embed.add_field(
+            name="!thumb [YouTube URL]",
+            value="Get the HD thumbnail of a YouTube video.",
+            inline=False
+        )
+        embed.add_field(
             name="!help",
             value="Show this help message.",
             inline=False
         )
         await ctx.send(embed=embed)
+
+    @commands.command(name='thumb')
+    async def thumb(self, ctx, url: str):
+        # Extract the video ID using regex
+        match = re.match(YOUTUBE_URL_PATTERN, url)
+        if match:
+            video_id = match.group(1)
+            # Construct the HD thumbnail URL
+            thumbnail_url = f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg'
+
+            # Create an embed to display the thumbnail
+            embed = discord.Embed(
+                title='YouTube Thumbnail',
+                description='Here is the HD thumbnail of the provided video:',
+                color=discord.Color.blue()
+            )
+            embed.set_image(url=thumbnail_url)
+            embed.set_footer(text='Requested by ' + ctx.author.name)
+
+            # Send the embed
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send('Please provide a valid YouTube link!')
 
 # Start the bot
 bot = CopyrightChecker()
