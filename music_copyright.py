@@ -8,6 +8,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
 import re
+from discord.ui import Button, View
 
 # Load environment variables
 load_dotenv()
@@ -124,8 +125,15 @@ class MusicCommands(commands.Cog):
             results = self.bot.spotify.search(q=query, type='track', limit=1)
             if results['tracks']['items']:
                 track = results['tracks']['items'][0]
-                # Assume that if a track is on Spotify, it's likely under copyright
+                
+                # Check for copyright indicators
+                album = self.bot.spotify.album(track['album']['id'])
                 copyrighted = True
+                if 'copyrights' in album:
+                    copyright_text = ' '.join([c['text'].lower() for c in album['copyrights']])
+                    if any(term in copyright_text for term in ['creative commons', 'public domain', 'cc0']):
+                        copyrighted = False
+                
                 return {
                     'title': track['name'],
                     'artist': ", ".join(artist['name'] for artist in track['artists']),
@@ -133,7 +141,8 @@ class MusicCommands(commands.Cog):
                     'release_date': track['album']['release_date'],
                     'spotify_url': track['external_urls']['spotify'],
                     'thumbnail': track['album']['images'][0]['url'] if track['album']['images'] else None,
-                    'is_copyrighted': copyrighted
+                    'is_copyrighted': copyrighted,
+                    'copyright_text': album.get('copyrights', [{'text': 'No copyright information available'}])[0]['text']
                 }
             return None
         except Exception as e:
@@ -142,7 +151,7 @@ class MusicCommands(commands.Cog):
 
     async def create_spotify_embed(self, info):
         """Create Discord embed for Spotify track info"""
-        copyright_status = "🔒 Copyrighted" if info['is_copyrighted'] else "✔️ Public Domain / Creative Commons"
+        copyright_status = "🔒 Likely Copyrighted" if info['is_copyrighted'] else "⚠️ Potentially Not Copyrighted"
         embed = discord.Embed(
             title="Spotify Track Information",
             description=f"[Listen on Spotify]({info['spotify_url']})",
@@ -153,7 +162,12 @@ class MusicCommands(commands.Cog):
         embed.add_field(name="Artist(s)", value=info['artist'], inline=True)
         embed.add_field(name="Album", value=info['album'], inline=True)
         embed.add_field(name="Release Date", value=info['release_date'], inline=True)
-        embed.add_field(name="Status", value=copyright_status, inline=True)
+        embed.add_field(name="Estimated Status", value=copyright_status, inline=False)
+        embed.add_field(name="Copyright Info", value=info['copyright_text'], inline=False)
+        
+        embed.add_field(name="⚠️ Important Note", value=(
+            "Spotify Search Results Are Not Accurate! Use YouTube Search Instead."
+        ), inline=False)
         
         if info['thumbnail']:
             embed.set_thumbnail(url=info['thumbnail'])
@@ -369,6 +383,69 @@ class MusicCommands(commands.Cog):
             }
         return None
 
+    @commands.command()
+    async def getid(self, ctx, *, handle: str):
+        """Fetches the YouTube channel ID from a given handle"""
+        try:
+            # Remove '@' if present, but allow it to work without '@' as well
+            handle = handle.lstrip('@')
+            
+            # First, try searching by username
+            request = youtube_client.channels().list(
+                part="id,snippet",
+                forUsername=handle
+            )
+            response = request.execute()
+
+            if not response.get("items"):
+                # If not found by username, try searching by channel name
+                search_request = youtube_client.search().list(
+                    part="id,snippet",
+                    q=handle,
+                    type="channel",
+                    maxResults=1
+                )
+                search_response = search_request.execute()
+                
+                if search_response.get("items"):
+                    channel_id = search_response["items"][0]["id"]["channelId"]
+                    channel_name = search_response["items"][0]["snippet"]["title"]
+                else:
+                    await ctx.send(f"No channel found for `{handle}`. The handle might be incorrect or the channel might not exist.")
+                    return
+            else:
+                channel_id = response["items"][0]["id"]
+                channel_name = response["items"][0]["snippet"]["title"]
+
+            # Create embed
+            embed = discord.Embed(
+                title="YouTube Channel ID",
+                description=f"Channel ID for `{handle}`",
+                color=discord.Color.red()
+            )
+            embed.add_field(name="Channel Name", value=channel_name, inline=False)
+            embed.add_field(name="Channel ID", value=channel_id, inline=False)
+            embed.add_field(name="Note", value="The searches may sometimes be inaccurate. Please verify the results.", inline=False)
+            
+            # Create button
+            button = Button(style=discord.ButtonStyle.green, label="Get Channel Stats", custom_id=f"youtube_{channel_id}")
+            
+            async def button_callback(interaction):
+                await interaction.response.defer()
+                await self.youtube_stats(ctx, channel_id)
+            
+            button.callback = button_callback
+            view = View()
+            view.add_item(button)
+            
+            await ctx.send(embed=embed, view=view)
+
+        except Exception as e:
+            error_message = f"An error occurred: {str(e)}"
+            if "quota" in str(e).lower():
+                error_message += "\nIt seems the YouTube API quota has been exceeded. Please try again later."
+            await ctx.send(error_message)
+
     @commands.command(name='help')
     async def help_command(self, ctx):
         embed = discord.Embed(
@@ -394,6 +471,11 @@ class MusicCommands(commands.Cog):
         embed.add_field(
             name="!youtube [channel ID]",
             value="Get detailed statistics for a YouTube channel.",
+            inline=False
+        )
+        embed.add_field(
+            name="!getid [YouTube handle]",
+            value="Get the channel ID for a given YouTube handle (with or without '@') and provide a quick option to view channel stats.",
             inline=False
         )
         embed.add_field(
