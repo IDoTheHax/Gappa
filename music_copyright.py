@@ -14,10 +14,10 @@ load_dotenv()
 
 # YouTube API client setup
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
-youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+youtube_client = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
 
 # Regular expression pattern to validate and extract video IDs
-YOUTUBE_URL_PATTERN = r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})'
+YOUTUBE_URL_PATTERN = r'(?:https?://)?(?:www\.)?(?:youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)([a-zA-Z0-9_-]{11})'
 
 class CopyrightChecker(commands.Bot):
     def __init__(self):
@@ -41,7 +41,7 @@ class CopyrightChecker(commands.Bot):
 
     async def on_ready(self):
         print(f"Bot is ready! Logged in as {self.user}")
-        await self.change_presence(activity=discord.Game(name="With Copyright! Want to know more? Type !help"))
+        await self.change_presence(activity=discord.Game(name="!help for commands"))
 
 class MusicCommands(commands.Cog):
     def __init__(self, bot):
@@ -231,7 +231,7 @@ class MusicCommands(commands.Cog):
         video_id = video_url.split('v=')[-1]  # Extract video ID from URL
 
         # Fetch video details from YouTube API
-        video_request = youtube.videos().list(
+        video_request = youtube_client.videos().list(
             part="snippet,contentDetails,statistics",
             id=video_id
         )
@@ -244,7 +244,7 @@ class MusicCommands(commands.Cog):
         channel_id = video_data["snippet"]["channelId"]
 
         # Fetch channel details
-        channel_request = youtube.channels().list(
+        channel_request = youtube_client.channels().list(
             part="snippet,statistics",
             id=channel_id
         )
@@ -267,6 +267,107 @@ class MusicCommands(commands.Cog):
             "channel_videos": channel_data["statistics"]["videoCount"],
             "thumbnail": thumbnail
         }
+
+    @commands.command(name='youtube')
+    async def youtube_stats(self, ctx, channel_id):
+        stats = self.get_channel_details(channel_id)
+        latest_video = self.get_latest_video(channel_id)
+        top_video = self.get_top_video(channel_id)
+
+        if stats:
+            embed = discord.Embed(
+                title=f"{stats['title']} - YouTube Channel Stats",
+                description=stats['description'],
+                color=discord.Color.red()
+            )
+            embed.set_thumbnail(url=stats["profile_pic"])
+
+            if stats["banner_url"]:
+                embed.set_image(url=stats["banner_url"])
+
+            embed.add_field(name="Subscribers", value=stats['subscribers'], inline=True)
+            embed.add_field(name="Total Views", value=stats['views'], inline=True)
+            embed.add_field(name="Total Videos", value=stats['videos'], inline=True)
+            embed.add_field(name="Watch Hours (estimated)", value=stats['watch_hours'], inline=True)
+            embed.add_field(name="Channel Created", value=stats['created_at'], inline=True)
+
+            if latest_video:
+                embed.add_field(
+                    name="Latest Video",
+                    value=f"[{latest_video['title']}](https://www.youtube.com/watch?v={latest_video['video_id']})"
+                )
+
+            if top_video:
+                embed.add_field(
+                    name="Top Video",
+                    value=f"[{top_video['title']}](https://www.youtube.com/watch?v={top_video['video_id']})"
+                )
+
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send("Channel not found!")
+
+    def get_channel_details(self, channel_id):
+        request = youtube_client.channels().list(
+            part="snippet,statistics,brandingSettings,contentDetails",
+            id=channel_id
+        )
+        response = request.execute()
+
+        if "items" in response and len(response["items"]) > 0:
+            channel = response["items"][0]
+            statistics = channel["statistics"]
+            snippet = channel["snippet"]
+            branding = channel["brandingSettings"]
+
+            return {
+                "title": snippet["title"],
+                "description": snippet.get("description", "No description"),
+                "subscribers": statistics.get("subscriberCount", "N/A"),
+                "views": statistics.get("viewCount", "N/A"),
+                "videos": statistics.get("videoCount", "N/A"),
+                "watch_hours": round(int(statistics.get("viewCount", 0)) / 1000, 2),  # rough estimate
+                "created_at": snippet["publishedAt"],
+                "profile_pic": snippet["thumbnails"]["high"]["url"],
+                "banner_url": branding["image"]["bannerExternalUrl"] if "image" in branding else None,
+            }
+        else:
+            return None
+
+    def get_latest_video(self, channel_id):
+        request = youtube_client.search().list(
+            part="snippet",
+            channelId=channel_id,
+            order="date",
+            maxResults=1
+        )
+        response = request.execute()
+
+        if response["items"]:
+            video = response["items"][0]
+            return {
+                "title": video["snippet"]["title"],
+                "video_id": video["id"]["videoId"],
+                "published_at": video["snippet"]["publishedAt"]
+            }
+        return None
+
+    def get_top_video(self, channel_id):
+        request = youtube_client.search().list(
+            part="snippet",
+            channelId=channel_id,
+            order="viewCount",
+            maxResults=1
+        )
+        response = request.execute()
+
+        if response["items"]:
+            video = response["items"][0]
+            return {
+                "title": video["snippet"]["title"],
+                "video_id": video["id"]["videoId"]
+            }
+        return None
 
     @commands.command(name='help')
     async def help_command(self, ctx):
@@ -291,8 +392,8 @@ class MusicCommands(commands.Cog):
             inline=False
         )
         embed.add_field(
-            name="!info",
-            value="Display information about the bot.",
+            name="!youtube [channel ID]",
+            value="Get detailed statistics for a YouTube channel.",
             inline=False
         )
         embed.add_field(
