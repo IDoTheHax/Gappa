@@ -483,6 +483,12 @@ class MusicCommands(commands.Cog):
             value="Show this help message.",
             inline=False
         )
+        embed.add_field(
+            name="!info",
+            value="Show information about the bot.",
+            inline=False
+        )
+        embed.set_footer(text="Thanks for using Gappa and thanks to Skeptical and others For the Amazing Support!")
         await ctx.send(embed=embed)
 
     @commands.command(name='thumb')
@@ -512,7 +518,7 @@ class MusicCommands(commands.Cog):
     async def show_bot_info(self, ctx):
         embed = discord.Embed(
             title="Gappa Bot Info",
-            description="I'm a bot designed to help The Creator Community With Free Tools!",
+            description="I'm a bot designed to help The Creator Community With Free Tools! FREE FOR ALL!",
             color=discord.Color.blue()
         )
         embed.add_field(
