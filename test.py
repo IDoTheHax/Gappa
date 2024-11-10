@@ -1,50 +1,67 @@
 import discord
-from discord.ext import commands
-from googleapiclient.discovery import build
+import yt_dlp
 import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
-# Initialize the YouTube API client
-youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+class YouTubeAudioBot(discord.Client):
+    def __init__(self):
+        # Set up intents to allow reading message content
+        intents = discord.Intents.default()
+        intents.message_content = True  # Allows reading message content for command detection
+        super().__init__(intents=intents)
 
+    async def on_ready(self):
+        print(f'Logged in as {self.user}')
 
-intents = discord.Intents.default()
-intents.message_content = True
+    async def on_message(self, message):
+        # Ignore messages from the bot itself
+        if message.author == self.user:
+            return
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+        # Check for the command prefix "!extract" and a YouTube link in the message
+        if message.content.startswith("!extract"):
+            try:
+                # Extract the YouTube URL from the message
+                url = message.content.split(" ")[1]
+                if "youtube.com" not in url and "youtu.be" not in url:
+                    await message.channel.send("Please provide a valid YouTube link after the command.")
+                    return
 
-@bot.event
-async def on_ready():
-    print(f'Logged in as {bot.user.name}')
+                await message.channel.send("Downloading audio...")
 
-@bot.command()
-async def getid(ctx, handle: str):
-    """Fetches the YouTube channel ID from a given handle"""
-    try:
-        # Remove '@' if the handle starts with it
-        handle = handle.lstrip('@')
-        
-        # Search for the channel using the YouTube API
-        request = youtube.channels().list(
-            part="id",
-            forUsername=handle
-        )
-        response = request.execute()
+                # Define a fixed filename to avoid special characters
+                output_filename = "downloaded_audio.mp3"
+                
+                # Download audio using yt-dlp with a specified output template
+                ydl_opts = {
+                    'format': 'bestaudio',
+                    'outtmpl': 'downloaded_audio.%(ext)s',  # Ensure filename consistency
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3',
+                        'preferredquality': '192'
+                    }]
+                }
 
-        if response["items"]:
-            # Extract the channel ID
-            channel_id = response["items"][0]["id"]
-            await ctx.send(f"The channel ID for `{handle}` is `{channel_id}`.")
-        else:
-            await ctx.send(f"No channel found for the handle `{handle}`.")
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.extract_info(url, download=True)
 
-    except Exception as e:
-        await ctx.send(f"An error occurred: {e}")
+                # Send the extracted audio file
+                await message.channel.send("Audio extracted successfully!", file=discord.File(output_filename))
 
-# Run the bot
+                # Cleanup the audio file after sending
+                os.remove(output_filename)
+                
+            except IndexError:
+                await message.channel.send("Please include a YouTube link after the command, like this: `!extract <YouTube URL>`")
+            except Exception as e:
+                await message.channel.send("An error occurred while extracting audio.")
+                print(f"Error: {e}")
+
+# Instantiate and run the bot
+bot = YouTubeAudioBot()
 bot.run(DISCORD_TOKEN)

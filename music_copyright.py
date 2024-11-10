@@ -484,6 +484,11 @@ class MusicCommands(commands.Cog):
             inline=False
         )
         embed.add_field(
+        name="!extract [YouTube URL]",
+        value="Extract audio from a YouTube video and send it as an MP3 file.",
+        inline=False
+        )
+        embed.add_field(
             name="!info",
             value="Show information about the bot.",
             inline=False
@@ -549,7 +554,47 @@ class MusicCommands(commands.Cog):
         embed.set_footer(text="Thanks for using Gappa and thanks to Skeptical and others For the Amazing Support!")
         
         await ctx.send(embed=embed)
+        # Add this to your MusicCommands class, alongside your other commands
+    @commands.command(name='extract')
+    async def extract(self, ctx, url=None):
+        """Extract audio from a YouTube video"""
+        if not url:
+            await ctx.send("Please provide a YouTube link after the command.")
+            return
 
+        if "youtube.com" not in url and "youtu.be" not in url:
+            await ctx.send("Please provide a valid YouTube link after the command.")
+            return
+
+        try:
+            await ctx.send("Downloading audio...")
+
+            # Define a fixed filename to avoid special characters
+            output_filename = "downloaded_audio.mp3"
+
+            # Download audio using yt-dlp with a specified output template
+            ydl_opts = {
+                'format': 'bestaudio',
+                'outtmpl': 'downloaded_audio.%(ext)s',  # Ensure filename consistency
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192'
+                }]
+            }
+
+            with YoutubeDL(ydl_opts) as ydl:
+                await asyncio.to_thread(ydl.extract_info, url, download=True)
+
+            # Send the extracted audio file
+            await ctx.send("Audio extracted successfully!", file=discord.File(output_filename))
+
+            # Cleanup the audio file after sending
+            os.remove(output_filename)
+
+        except Exception as e:
+            await ctx.send("An error occurred while extracting audio.")
+            print(f"Error: {e}")
 # Start the bot
 bot = CopyrightChecker()
 bot.run(os.getenv("DISCORD_TOKEN"))
