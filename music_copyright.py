@@ -9,6 +9,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
 import re
 from discord.ui import Button, View
+MUSIC_DIRECTORY = 'E:\self_bot\downloads'  
 
 # Load environment variables
 load_dotenv()
@@ -446,7 +447,7 @@ class MusicCommands(commands.Cog):
                 error_message += "\nIt seems the YouTube API quota has been exceeded. Please try again later."
             await ctx.send(error_message)
 
-    @commands.command(name='help')
+    @commands.command(name='help', help="Show this help message.")
     async def help_command(self, ctx):
         embed = discord.Embed(
             title="Music Copyright Bot Help",
@@ -484,17 +485,23 @@ class MusicCommands(commands.Cog):
             inline=False
         )
         embed.add_field(
-        name="!extract [YouTube URL]",
-        value="Extract audio from a YouTube video and send it as an MP3 file.",
-        inline=False
+            name="!extract [YouTube URL]",
+            value="Extract audio from a YouTube video and send it as an MP3 file.",
+            inline=False
         )
         embed.add_field(
             name="!info",
             value="Show information about the bot.",
             inline=False
         )
-        embed.set_footer(text="Thanks for using Gappa and thanks to Skeptical and others For the Amazing Support!")
-        await ctx.send(embed=embed)
+        embed.set_footer(text="Learn About Copyright,types,symbols and much more. Click the Button Below To Start Learning!")
+
+        # Create a green button with a link to the help page
+        view = discord.ui.View()
+        button = discord.ui.Button(style=discord.ButtonStyle.green, label="Learn About Copyright", url="https://gappa-web.pages.dev/wiki/wiki")
+        view.add_item(button)
+
+        await ctx.send(embed=embed, view=view)
 
     @commands.command(name='thumb')
     async def thumb(self, ctx, url: str):
