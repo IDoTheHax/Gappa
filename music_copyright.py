@@ -9,24 +9,15 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
 import re
 from discord.ui import Button, View
-MUSIC_DIRECTORY = 'E:\self_bot\downloads'  
-
-# Load environment variables
 load_dotenv()
-
-# YouTube API client setup
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 youtube_client = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
-
-# Regular expression pattern to validate and extract video IDs
 YOUTUBE_URL_PATTERN = r'(?:https?://)?(?:www\.)?(?:youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)([a-zA-Z0-9_-]{11})'
-
 class CopyrightChecker(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(command_prefix='!', intents=intents, help_command=None)
-
         self.ydl_opts = {
             'format': 'bestaudio/best',
             'extract_flat': 'in_playlist',
@@ -37,24 +28,19 @@ class CopyrightChecker(commands.Bot):
         client_id = os.getenv("SPOTIFY_CLIENT_ID")
         client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
         self.spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id, client_secret))
-        
     async def setup_hook(self):
         await self.add_cog(MusicCommands(self))
-
     async def on_ready(self):
         print(f"Bot is ready! Logged in as {self.user}")
         await self.change_presence(activity=discord.Game(name="!help for commands"))
-
 class MusicCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
     @commands.command(name='check')
     async def check_copyright(self, ctx, *, query):
         """Check copyright status of a song by title or YouTube URL"""
         async with ctx.typing():
             try:
-                # If it's a YouTube URL
                 if 'youtube.com' in query or 'youtu.be' in query:
                     info = await self.get_youtube_info(query)
                     if info:
@@ -62,7 +48,6 @@ class MusicCommands(commands.Cog):
                         await ctx.send(embed=embed)
                     else:
                         await ctx.send("❌ Couldn't fetch video information. Please make sure the URL is valid.")
-                
                 else:
                     results = await self.search_spotify_info(query)
                     if results:
@@ -70,7 +55,6 @@ class MusicCommands(commands.Cog):
                         await ctx.send(embed=embed)
                     else:
                         await ctx.send("❌ No information found for this song on Spotify.")
-   
             except Exception as e:
                 error_msg = f"❌ An error occurred: {str(e)}"
                 if "HTTP Error 429" in str(e):
@@ -78,7 +62,6 @@ class MusicCommands(commands.Cog):
                 elif "This video is unavailable" in str(e):
                     error_msg = "❌ This video is unavailable or private."
                 await ctx.send(error_msg)
-
     async def get_youtube_info(self, url):
         """Get copyright information from YouTube video"""
         with YoutubeDL(self.bot.ydl_opts) as ydl:
@@ -86,24 +69,16 @@ class MusicCommands(commands.Cog):
                 info = await asyncio.to_thread(ydl.extract_info, url, download=False)
                 if not info:
                     return None
-                
                 license_info = info.get('license', 'Standard YouTube License')
                 title = info.get('title', '').lower()
                 description = info.get('description', '').lower()
-
-                # Improved copyright detection logic
                 is_creative_commons = (
                     'creative commons' in description or
                     license_info.lower() == 'creative commons'
                 )
-                
-                # Check for phrases indicating that the content might be free to use
-                no_copyright_terms = ['no copyright', 'free to use', 'royalty-free', 'copyright free', 'public domain']
+                no_copyright_terms = ['no copyright', 'free to use', 'royalty-free', 'copyright free', 'public domain','royalty free music']
                 contains_no_copyright = any(term in title or term in description for term in no_copyright_terms)
-                
-                # Consider the content non-copyrighted if it falls into these categories
                 copyrighted = not (is_creative_commons or contains_no_copyright)
-
                 return {
                     'title': info.get('title', 'Unknown'),
                     'channel': info.get('uploader', 'Unknown'),
@@ -119,22 +94,18 @@ class MusicCommands(commands.Cog):
             except Exception as e:
                 print(f"Error extracting video info: {str(e)}")
                 return None
-
     async def search_spotify_info(self, query):
         """Search for song information using Spotify"""
         try:
             results = self.bot.spotify.search(q=query, type='track', limit=1)
             if results['tracks']['items']:
                 track = results['tracks']['items'][0]
-                
-                # Check for copyright indicators
                 album = self.bot.spotify.album(track['album']['id'])
                 copyrighted = True
                 if 'copyrights' in album:
                     copyright_text = ' '.join([c['text'].lower() for c in album['copyrights']])
                     if any(term in copyright_text for term in ['creative commons', 'public domain', 'cc0']):
                         copyrighted = False
-                
                 return {
                     'title': track['name'],
                     'artist': ", ".join(artist['name'] for artist in track['artists']),
@@ -149,7 +120,6 @@ class MusicCommands(commands.Cog):
         except Exception as e:
             print(f"Error fetching song info from Spotify: {str(e)}")
             return None
-
     async def create_spotify_embed(self, info):
         """Create Discord embed for Spotify track info"""
         copyright_status = "🔒 Likely Copyrighted" if info['is_copyrighted'] else "⚠️ Potentially Not Copyrighted"
@@ -158,23 +128,18 @@ class MusicCommands(commands.Cog):
             description=f"[Listen on Spotify]({info['spotify_url']})",
             color=discord.Color.green()
         )
-        
         embed.add_field(name="Title", value=info['title'], inline=False)
         embed.add_field(name="Artist(s)", value=info['artist'], inline=True)
         embed.add_field(name="Album", value=info['album'], inline=True)
         embed.add_field(name="Release Date", value=info['release_date'], inline=True)
         embed.add_field(name="Estimated Status", value=copyright_status, inline=False)
         embed.add_field(name="Copyright Info", value=info['copyright_text'], inline=False)
-        
         embed.add_field(name="⚠️ Important Note", value=(
             "Spotify Search Results Are Not Accurate! Use YouTube Search Instead."
         ), inline=False)
-        
         if info['thumbnail']:
             embed.set_thumbnail(url=info['thumbnail'])
-        
         return embed
-
     async def create_youtube_embed(self, info):
         """Create Discord embed for YouTube video info"""
         copyright_status = "🔒 Copyrighted" if info['is_copyrighted'] else "✔️ Public Domain / Creative Commons"
@@ -183,18 +148,20 @@ class MusicCommands(commands.Cog):
             description=f"[Watch on YouTube]({info.get('url')})",
             color=discord.Color.red()
         )
-        
         embed.add_field(name="Title", value=info['title'], inline=False)
         embed.add_field(name="Channel", value=info['channel'], inline=True)
         embed.add_field(name="License", value=info['license'], inline=True)
         embed.add_field(name="Status", value=copyright_status, inline=True)
         embed.add_field(name="Note", value="This check is based on video license information, title, and description analysis.", inline=True)
-        
+        embed.add_field(name="Note For Epidemic Music", value="If you are checking a music Epidemic Music Which Says That It is Royalty Free, That Does Not Mean You Can Use it you have to buy a subscription from Epidemic.", inline=True)
+        embed.set_footer(text="Learn About Copyright,types,symbols and much more. Visit Gappa Wiki Now!")
+
+        view = discord.ui.View()
+        button = discord.ui.Button(style=discord.ButtonStyle.green, label="Learn About Copyright", url="https://gappa-web.pages.dev/wiki/wiki")
+        view.add_item(button)
         if info['thumbnail']:
             embed.set_thumbnail(url=info['thumbnail'])
-        
         return embed
-
     @commands.command(name="fetch")
     async def fetch_video_info(self, ctx, yt_link):
         try:
@@ -213,21 +180,17 @@ class MusicCommands(commands.Cog):
             embed.add_field(name="Duration", value=self.format_duration(video_info['duration']), inline=True)
             embed.add_field(name="Channel Subscribers", value=f"{int(video_info['channel_subscribers']):,}", inline=True)
             embed.add_field(name="Total Videos", value=f"{int(video_info['channel_videos']):,}", inline=True)
-            
             if 'thumbnail' in video_info and video_info['thumbnail']:
                 embed.set_thumbnail(url=video_info['thumbnail'])
-            
             await ctx.send(embed=embed)
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
-
     def format_duration(self, duration):
         """Convert ISO 8601 duration to a more readable format"""
         duration = duration.replace('PT', '')
         hours = 0
         minutes = 0
         seconds = 0
-        
         if 'H' in duration:
             hours, duration = duration.split('H')
             hours = int(hours)
@@ -236,39 +199,28 @@ class MusicCommands(commands.Cog):
             minutes = int(minutes)
         if 'S' in duration:
             seconds = int(duration.replace('S', ''))
-        
         if hours > 0:
             return f"{hours}:{minutes:02d}:{seconds:02d}"
         else:
             return f"{minutes}:{seconds:02d}"
-
     def get_video_info(self, video_url):
-        video_id = video_url.split('v=')[-1]  # Extract video ID from URL
-
-        # Fetch video details from YouTube API
+        video_id = video_url.split('v=')[-1]  
         video_request = youtube_client.videos().list(
             part="snippet,contentDetails,statistics",
             id=video_id
         )
         video_response = video_request.execute()
-
         if not video_response['items']:
             raise Exception("Invalid YouTube video link or video not found.")
-
         video_data = video_response["items"][0]
         channel_id = video_data["snippet"]["channelId"]
-
-        # Fetch channel details
         channel_request = youtube_client.channels().list(
             part="snippet,statistics",
             id=channel_id
         )
         channel_response = channel_request.execute()
         channel_data = channel_response["items"][0]
-
-        # Add this line to get the thumbnail URL
         thumbnail = video_data["snippet"]["thumbnails"]["high"]["url"] if "thumbnails" in video_data["snippet"] else None
-        
         return {
             "title": video_data["snippet"]["title"],
             "description": video_data["snippet"]["description"],
@@ -282,13 +234,11 @@ class MusicCommands(commands.Cog):
             "channel_videos": channel_data["statistics"]["videoCount"],
             "thumbnail": thumbnail
         }
-
     @commands.command(name='youtube')
     async def youtube_stats(self, ctx, channel_id):
         stats = self.get_channel_details(channel_id)
         latest_video = self.get_latest_video(channel_id)
         top_video = self.get_top_video(channel_id)
-
         if stats:
             embed = discord.Embed(
                 title=f"{stats['title']} - YouTube Channel Stats",
@@ -296,45 +246,37 @@ class MusicCommands(commands.Cog):
                 color=discord.Color.red()
             )
             embed.set_thumbnail(url=stats["profile_pic"])
-
             if stats["banner_url"]:
                 embed.set_image(url=stats["banner_url"])
-
             embed.add_field(name="Subscribers", value=stats['subscribers'], inline=True)
             embed.add_field(name="Total Views", value=stats['views'], inline=True)
             embed.add_field(name="Total Videos", value=stats['videos'], inline=True)
             embed.add_field(name="Watch Hours (estimated)", value=stats['watch_hours'], inline=True)
             embed.add_field(name="Channel Created", value=stats['created_at'], inline=True)
-
             if latest_video:
                 embed.add_field(
                     name="Latest Video",
                     value=f"[{latest_video['title']}](https://www.youtube.com/watch?v={latest_video['video_id']})"
                 )
-
             if top_video:
                 embed.add_field(
                     name="Top Video",
                     value=f"[{top_video['title']}](https://www.youtube.com/watch?v={top_video['video_id']})"
                 )
-
             await ctx.send(embed=embed)
         else:
             await ctx.send("Channel not found!")
-
     def get_channel_details(self, channel_id):
         request = youtube_client.channels().list(
             part="snippet,statistics,brandingSettings,contentDetails",
             id=channel_id
         )
         response = request.execute()
-
         if "items" in response and len(response["items"]) > 0:
             channel = response["items"][0]
             statistics = channel["statistics"]
             snippet = channel["snippet"]
             branding = channel["brandingSettings"]
-
             return {
                 "title": snippet["title"],
                 "description": snippet.get("description", "No description"),
@@ -348,7 +290,6 @@ class MusicCommands(commands.Cog):
             }
         else:
             return None
-
     def get_latest_video(self, channel_id):
         request = youtube_client.search().list(
             part="snippet",
@@ -388,18 +329,14 @@ class MusicCommands(commands.Cog):
     async def getid(self, ctx, *, handle: str):
         """Fetches the YouTube channel ID from a given handle"""
         try:
-            # Remove '@' if present, but allow it to work without '@' as well
             handle = handle.lstrip('@')
             
-            # First, try searching by username
             request = youtube_client.channels().list(
                 part="id,snippet",
                 forUsername=handle
             )
             response = request.execute()
-
             if not response.get("items"):
-                # If not found by username, try searching by channel name
                 search_request = youtube_client.search().list(
                     part="id,snippet",
                     q=handle,
@@ -407,7 +344,6 @@ class MusicCommands(commands.Cog):
                     maxResults=1
                 )
                 search_response = search_request.execute()
-                
                 if search_response.get("items"):
                     channel_id = search_response["items"][0]["id"]["channelId"]
                     channel_name = search_response["items"][0]["snippet"]["title"]
@@ -417,8 +353,6 @@ class MusicCommands(commands.Cog):
             else:
                 channel_id = response["items"][0]["id"]
                 channel_name = response["items"][0]["snippet"]["title"]
-
-            # Create embed
             embed = discord.Embed(
                 title="YouTube Channel ID",
                 description=f"Channel ID for `{handle}`",
@@ -427,26 +361,19 @@ class MusicCommands(commands.Cog):
             embed.add_field(name="Channel Name", value=channel_name, inline=False)
             embed.add_field(name="Channel ID", value=channel_id, inline=False)
             embed.add_field(name="Note", value="The searches may sometimes be inaccurate. Please verify the results.", inline=False)
-            
-            # Create button
             button = Button(style=discord.ButtonStyle.green, label="Get Channel Stats", custom_id=f"youtube_{channel_id}")
-            
             async def button_callback(interaction):
                 await interaction.response.defer()
                 await self.youtube_stats(ctx, channel_id)
-            
             button.callback = button_callback
             view = View()
             view.add_item(button)
-            
             await ctx.send(embed=embed, view=view)
-
         except Exception as e:
             error_message = f"An error occurred: {str(e)}"
             if "quota" in str(e).lower():
                 error_message += "\nIt seems the YouTube API quota has been exceeded. Please try again later."
             await ctx.send(error_message)
-
     @commands.command(name='help', help="Show this help message.")
     async def help_command(self, ctx):
         embed = discord.Embed(
@@ -495,24 +422,18 @@ class MusicCommands(commands.Cog):
             inline=False
         )
         embed.set_footer(text="Learn About Copyright,types,symbols and much more. Click the Button Below To Start Learning!")
-
-        # Create a green button with a link to the help page
         view = discord.ui.View()
         button = discord.ui.Button(style=discord.ButtonStyle.green, label="Learn About Copyright", url="https://gappa-web.pages.dev/wiki/wiki")
         view.add_item(button)
-
         await ctx.send(embed=embed, view=view)
 
     @commands.command(name='thumb')
     async def thumb(self, ctx, url: str):
-        # Extract the video ID using regex
         match = re.match(YOUTUBE_URL_PATTERN, url)
         if match:
             video_id = match.group(1)
-            # Construct the HD thumbnail URL
             thumbnail_url = f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg'
 
-            # Create an embed to display the thumbnail
             embed = discord.Embed(
                 title='YouTube Thumbnail',
                 description='Here is the HD thumbnail of the provided video:',
@@ -521,7 +442,6 @@ class MusicCommands(commands.Cog):
             embed.set_image(url=thumbnail_url)
             embed.set_footer(text='Requested by ' + ctx.author.name)
 
-            # Send the embed
             await ctx.send(embed=embed)
         else:
             await ctx.send('Please provide a valid YouTube link!')
@@ -558,50 +478,42 @@ class MusicCommands(commands.Cog):
             value="Use !help to see available commands",
             inline=False
         )
-        embed.set_footer(text="Thanks for using Gappa and thanks to Skeptical and others For the Amazing Support!")
+        embed.set_footer(text="Learn About Copyright,types,symbols and much more. Click the Button Below To Start Learning!")
+
+        view = discord.ui.View()
+        button = discord.ui.Button(style=discord.ButtonStyle.green, label="Learn About Copyright", url="https://gappa-web.pages.dev/wiki/wiki")
+        view.add_item(button)
         
         await ctx.send(embed=embed)
-        # Add this to your MusicCommands class, alongside your other commands
+    
     @commands.command(name='extract')
     async def extract(self, ctx, url=None):
         """Extract audio from a YouTube video"""
         if not url:
             await ctx.send("Please provide a YouTube link after the command.")
             return
-
         if "youtube.com" not in url and "youtu.be" not in url:
             await ctx.send("Please provide a valid YouTube link after the command.")
             return
-
         try:
             await ctx.send("Downloading audio...")
-
-            # Define a fixed filename to avoid special characters
             output_filename = "downloaded_audio.mp3"
-
-            # Download audio using yt-dlp with a specified output template
             ydl_opts = {
                 'format': 'bestaudio',
-                'outtmpl': 'downloaded_audio.%(ext)s',  # Ensure filename consistency
+                'outtmpl': 'downloaded_audio.%(ext)s', 
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
                     'preferredquality': '192'
                 }]
             }
-
             with YoutubeDL(ydl_opts) as ydl:
                 await asyncio.to_thread(ydl.extract_info, url, download=True)
-
-            # Send the extracted audio file
             await ctx.send("Audio extracted successfully!", file=discord.File(output_filename))
-
-            # Cleanup the audio file after sending
             os.remove(output_filename)
-
         except Exception as e:
-            await ctx.send("An error occurred while extracting audio.")
+            await ctx.send("An error occurred while extracting audio. This Issue Was Occurred Because terminal is IDLE Ping Coder-Soft or Dm Coder-soft")
             print(f"Error: {e}")
-# Start the bot
 bot = CopyrightChecker()
 bot.run(os.getenv("DISCORD_TOKEN"))
+
