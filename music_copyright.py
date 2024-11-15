@@ -484,7 +484,7 @@ class MusicCommands(commands.Cog):
         button = discord.ui.Button(style=discord.ButtonStyle.green, label="Learn About Copyright", url="https://gappa-web.pages.dev/wiki/wiki")
         view.add_item(button)
         
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, view=view)
     
     @commands.command(name='extract')
     async def extract(self, ctx, url=None):
@@ -512,8 +512,7 @@ class MusicCommands(commands.Cog):
             await ctx.send("Audio extracted successfully!", file=discord.File(output_filename))
             os.remove(output_filename)
         except Exception as e:
-            await ctx.send("An error occurred while extracting audio. This Issue Was Occurred Because terminal is IDLE Ping Coder-Soft or Dm Coder-soft")
+            await ctx.send("An error occurred while extracting audio.")
             print(f"Error: {e}")
 bot = CopyrightChecker()
 bot.run(os.getenv("DISCORD_TOKEN"))
-
