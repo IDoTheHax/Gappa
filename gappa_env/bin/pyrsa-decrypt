@@ -1,4 +1,4 @@
-#!/home/matty/Gappa/gappa_env/bin/python3
+#!/home/matty/PycharmProjects/gappa-hax/gappa_env/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

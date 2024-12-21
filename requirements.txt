@@ -3,4 +3,4 @@ spotipy
 yt-dlp
 asyncio
 python-dotenv
-re
+google-api-python-client
