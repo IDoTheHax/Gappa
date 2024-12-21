@@ -127,6 +127,9 @@ class MusicCommands(commands.Cog):
                 return None
     async def search_spotify_info(self, query):
         """Search for song information using Spotify"""
+        if query in self.cached_info:
+            return self.cached_info[query]
+
         try:
             results = self.bot.spotify.search(q=query, type='track', limit=1)
             if results['tracks']['items']:
@@ -137,7 +140,7 @@ class MusicCommands(commands.Cog):
                     copyright_text = ' '.join([c['text'].lower() for c in album['copyrights']])
                     if any(term in copyright_text for term in ['creative commons', 'public domain', 'cc0']):
                         copyrighted = False
-                return {
+                song_info = {
                     'title': track['name'],
                     'artist': ", ".join(artist['name'] for artist in track['artists']),
                     'album': track['album']['name'],
@@ -145,8 +148,12 @@ class MusicCommands(commands.Cog):
                     'spotify_url': track['external_urls']['spotify'],
                     'thumbnail': track['album']['images'][0]['url'] if track['album']['images'] else None,
                     'is_copyrighted': copyrighted,
-                    'copyright_text': album.get('copyrights', [{'text': 'No copyright information available'}])[0]['text']
+                    'copyright_text': album.get('copyrights', [{'text': 'No copyright information available'}])[0][
+                        'text']
                 }
+                self.cached_info[query] = song_info
+                self.save_cache()
+                return song_info
             return None
         except Exception as e:
             print(f"Error fetching song info from Spotify: {str(e)}")
